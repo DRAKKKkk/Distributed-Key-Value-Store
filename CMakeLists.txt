@@ -6,5 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Threads REQUIRED)
 
-add_executable(kvstore main.cpp server.cpp thread_pool.cpp wal.cpp raft.cpp)
+# Ensure consistent_hash.cpp is in this list!
+add_executable(kvstore 
+    main.cpp 
+    server.cpp 
+    thread_pool.cpp 
+    wal.cpp 
+    raft.cpp 
+    consistent_hash.cpp
+)
+
 target_link_libraries(kvstore Threads::Threads)

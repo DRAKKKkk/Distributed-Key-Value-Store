@@ -1,0 +1,103 @@
+The system is: Linux - 6.6.87.2-microsoft-standard-WSL2 - x86_64
+Compiling the C compiler identification source file "CMakeCCompilerId.c" succeeded.
+Compiler: /usr/bin/cc 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.out"
+
+The C compiler identification is GNU, found in "/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/3.22.1/CompilerIdC/a.out"
+
+Compiling the CXX compiler identification source file "CMakeCXXCompilerId.cpp" succeeded.
+Compiler: /usr/bin/c++ 
+Build flags: 
+Id flags:  
+
+The output was:
+0
+
+
+Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.out"
+
+The CXX compiler identification is GNU, found in "/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/3.22.1/CompilerIdCXX/a.out"
+
+Determining if the C compiler works passed with the following output:
+Change Dir: /mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_0a8a6/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_0a8a6.dir/build.make CMakeFiles/cmTC_0a8a6.dir/build
+gmake[1]: Entering directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_0a8a6.dir/testCCompiler.c.o
+/usr/bin/cc    -o CMakeFiles/cmTC_0a8a6.dir/testCCompiler.c.o -c "/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp/testCCompiler.c"
+Linking C executable cmTC_0a8a6
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_0a8a6.dir/link.txt --verbose=1
+/usr/bin/cc CMakeFiles/cmTC_0a8a6.dir/testCCompiler.c.o -o cmTC_0a8a6 
+gmake[1]: Leaving directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+
+
+
+Determining if the CXX compiler works passed with the following output:
+Change Dir: /mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_fabe0/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_fabe0.dir/build.make CMakeFiles/cmTC_fabe0.dir/build
+gmake[1]: Entering directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_fabe0.dir/testCXXCompiler.cxx.o
+/usr/bin/c++    -o CMakeFiles/cmTC_fabe0.dir/testCXXCompiler.cxx.o -c "/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp/testCXXCompiler.cxx"
+Linking CXX executable cmTC_fabe0
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_fabe0.dir/link.txt --verbose=1
+/usr/bin/c++ CMakeFiles/cmTC_fabe0.dir/testCXXCompiler.cxx.o -o cmTC_fabe0 
+gmake[1]: Leaving directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+
+
+
+Determining if the include file pthread.h exists passed with the following output:
+Change Dir: /mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_5fdb5/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_5fdb5.dir/build.make CMakeFiles/cmTC_5fdb5.dir/build
+gmake[1]: Entering directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_5fdb5.dir/CheckIncludeFile.c.o
+/usr/bin/cc    -o CMakeFiles/cmTC_5fdb5.dir/CheckIncludeFile.c.o -c "/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp/CheckIncludeFile.c"
+Linking C executable cmTC_5fdb5
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_5fdb5.dir/link.txt --verbose=1
+/usr/bin/cc CMakeFiles/cmTC_5fdb5.dir/CheckIncludeFile.c.o -o cmTC_5fdb5 
+gmake[1]: Leaving directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+
+
+
+Performing C SOURCE FILE Test CMAKE_HAVE_LIBC_PTHREAD succeeded with the following output:
+Change Dir: /mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/usr/bin/gmake -f Makefile cmTC_74039/fast && /usr/bin/gmake  -f CMakeFiles/cmTC_74039.dir/build.make CMakeFiles/cmTC_74039.dir/build
+gmake[1]: Entering directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+Building C object CMakeFiles/cmTC_74039.dir/src.c.o
+/usr/bin/cc -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_74039.dir/src.c.o -c "/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp/src.c"
+Linking C executable cmTC_74039
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_74039.dir/link.txt --verbose=1
+/usr/bin/cc CMakeFiles/cmTC_74039.dir/src.c.o -o cmTC_74039 
+gmake[1]: Leaving directory '/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/CMakeTmp'
+
+
+Source file was:
+#include <pthread.h>
+
+static void* test_func(void* data)
+{
+  return data;
+}
+
+int main(void)
+{
+  pthread_t thread;
+  pthread_create(&thread, NULL, test_func, NULL);
+  pthread_detach(thread);
+  pthread_cancel(thread);
+  pthread_join(thread, NULL);
+  pthread_atfork(NULL, NULL, NULL);
+  pthread_exit(NULL);
+
+  return 0;
+}
+

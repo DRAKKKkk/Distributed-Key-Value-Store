@@ -4,4 +4,7 @@ project(DistributedKVStore)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_executable(kvstore main.cpp server.cpp)
+find_package(Threads REQUIRED)
+
+add_executable(kvstore main.cpp server.cpp thread_pool.cpp wal.cpp raft.cpp)
+target_link_libraries(kvstore Threads::Threads)

@@ -1,5 +1,4 @@
 #include "server.hpp"
-#include <iostream>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
@@ -11,13 +10,20 @@
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
 
-Server::Server(int port) : port_(port), server_fd_(-1), epoll_fd_(-1) {
+Server::Server(int port, size_t num_threads, const std::string& wal_file, int node_id) 
+    : port_(port), server_fd_(-1), epoll_fd_(-1), thread_pool_(num_threads), wal_(wal_file), raft_(node_id) {
+    wal_.recover(store_);
+    ring_.add_node(node_name_);
     setup_server();
 }
 
 Server::~Server() {
     if (server_fd_ != -1) close(server_fd_);
     if (epoll_fd_ != -1) close(epoll_fd_);
+}
+
+void Server::add_cluster_node(const std::string& node_name) {
+    ring_.add_node(node_name);
 }
 
 void Server::set_non_blocking(int fd) {
@@ -55,7 +61,10 @@ void Server::run() {
             if (events[i].data.fd == server_fd_) {
                 handle_new_connection();
             } else {
-                handle_client_data(events[i].data.fd);
+                int client_fd = events[i].data.fd;
+                thread_pool_.enqueue([this, client_fd]() {
+                    this->handle_client_data(client_fd);
+                });
             }
         }
     }
@@ -73,7 +82,7 @@ void Server::handle_new_connection() {
         
         set_non_blocking(client_fd);
         epoll_event event{};
-        event.events = EPOLLIN | EPOLLET;
+        event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
         event.data.fd = client_fd;
         epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, client_fd, &event);
     }
@@ -81,20 +90,36 @@ void Server::handle_new_connection() {
 
 void Server::handle_client_data(int client_fd) {
     char buffer[BUFFER_SIZE];
-    
+    std::string command;
+    bool connection_closed = false;
+
     while (true) {
         ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
 
         if (bytes_read > 0) {
             buffer[bytes_read] = '\0';
-            process_command(client_fd, std::string(buffer));
+            command += buffer;
         } else if (bytes_read == -1 && errno == EAGAIN) {
             break;
         } else {
-            close(client_fd);
+            connection_closed = true;
             break;
         }
     }
+
+    if (connection_closed) {
+        close(client_fd);
+        return;
+    }
+
+    if (!command.empty()) {
+        process_command(client_fd, command);
+    }
+
+    epoll_event event{};
+    event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+    event.data.fd = client_fd;
+    epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, client_fd, &event);
 }
 
 void Server::process_command(int client_fd, const std::string& command) {
@@ -102,18 +127,28 @@ void Server::process_command(int client_fd, const std::string& command) {
     std::string op, key, value, response;
     iss >> op >> key;
 
-    if (op == "SET") {
-        iss >> value;
-        store_[key] = value;
-        response = "OK\n";
-    } else if (op == "GET") {
-        if (store_.find(key) != store_.end()) {
-            response = store_[key] + "\n";
-        } else {
-            response = "(nil)\n";
-        }
+    std::string target_node = ring_.get_node(key);
+    
+    if (target_node != node_name_) {
+        response = "REDIRECT " + target_node + "\n";
     } else {
-        response = "ERROR\n";
+
+        if (op == "SET") {
+            iss >> value;
+            wal_.append(op, key, value);
+            std::unique_lock<std::shared_mutex> lock(store_mutex_);
+            store_[key] = value;
+            response = "OK\n";
+        } else if (op == "GET") {
+            std::shared_lock<std::shared_mutex> lock(store_mutex_);
+            if (store_.find(key) != store_.end()) {
+                response = store_[key] + "\n";
+            } else {
+                response = "(nil)\n";
+            }
+        } else {
+            response = "ERROR\n";
+        }
     }
 
     write(client_fd, response.c_str(), response.length());

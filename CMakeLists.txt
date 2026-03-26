@@ -6,14 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(Threads REQUIRED)
 
-# Ensure consistent_hash.cpp is in this list!
-add_executable(kvstore 
-    main.cpp 
-    server.cpp 
-    thread_pool.cpp 
-    wal.cpp 
-    raft.cpp 
-    consistent_hash.cpp
-)
-
+# Build the main server
+add_executable(kvstore main.cpp server.cpp thread_pool.cpp wal.cpp raft.cpp consistent_hash.cpp)
 target_link_libraries(kvstore Threads::Threads)
+
+# Build the stress test client
+add_executable(client client.cpp)
+target_link_libraries(client Threads::Threads)

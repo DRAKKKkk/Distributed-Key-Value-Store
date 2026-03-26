@@ -116,7 +116,7 @@ void Raft::send_heartbeats() {
         int p_idx = next_index_[peer] - 1;
         
         if (p_idx < last_included_index_) {
-            continue;
+            p_idx = last_included_index_; 
         }
 
         int p_term = get_log_term(p_idx);
@@ -161,18 +161,26 @@ void Raft::send_rpc_async(const std::string& peer, const std::string& message, b
                 if (type == "VOTE_ACK") {
                     int term, granted;
                     iss >> term >> granted;
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    if (term > current_term_) {
-                        current_term_ = term;
-                        state_ = RaftState::FOLLOWER;
-                        voted_for_ = -1;
-                    } else if (is_vote && granted) {
-                        votes_received_++;
-                        if (state_ == RaftState::CANDIDATE && votes_received_ > (peers_.size() + 1) / 2) {
-                            state_ = RaftState::LEADER;
-                            send_heartbeats();
+                    bool became_leader = false;
+                    {
+                        std::lock_guard<std::mutex> lock(mutex_);
+                        if (term > current_term_) {
+                            current_term_ = term;
+                            state_ = RaftState::FOLLOWER;
+                            voted_for_ = -1;
+                        } else if (is_vote && granted) {
+                            votes_received_++;
+                            if (state_ == RaftState::CANDIDATE && votes_received_ > (peers_.size() + 1) / 2) {
+                                state_ = RaftState::LEADER;
+                                for (const auto& p : peers_) {
+                                    next_index_[p] = last_included_index_ + (int)log_.size() + 1;
+                                    match_index_[p] = last_included_index_;
+                                }
+                                became_leader = true;
+                            }
                         }
                     }
+                    if (became_leader) send_heartbeats();
                 } else if (type == "APPEND_ACK") {
                     int term, success;
                     iss >> term >> success;
@@ -220,8 +228,8 @@ bool Raft::request_vote(int candidate_term, int candidate_id, int last_log_index
     int my_last_idx = last_included_index_ + (int)log_.size();
     int my_last_term = get_log_term(my_last_idx);
 
-    bool log_ok = (candidate_term > my_last_term) || 
-                  (candidate_term == my_last_term && last_log_index >= my_last_idx);
+    bool log_ok = (last_log_term > my_last_term) || 
+                  (last_log_term == my_last_term && last_log_index >= my_last_idx);
 
     if ((voted_for_ == -1 || voted_for_ == candidate_id) && log_ok) {
         voted_for_ = candidate_id;

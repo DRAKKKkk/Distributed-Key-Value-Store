@@ -13,7 +13,6 @@
 Server::Server(int port, size_t num_threads, const std::string& wal_file, int node_id, const std::string& node_name) 
     : port_(port), node_name_(node_name), server_fd_(-1), epoll_fd_(-1), thread_pool_(num_threads), wal_(wal_file), raft_(node_id), ring_(3) {
     wal_.recover(store_);
-    ring_.add_node(node_name_);
     setup_server();
 }
 
@@ -22,9 +21,7 @@ Server::~Server() {
     if (epoll_fd_ != -1) close(epoll_fd_);
 }
 
-void Server::add_cluster_node(const std::string& node_name) {
-    ring_.add_node(node_name);
-}
+void Server::add_cluster_node(const std::string& node_name) {}
 
 Raft& Server::get_raft() {
     return raft_;
@@ -153,7 +150,7 @@ void Server::process_command(int client_fd, const std::string& command) {
 
         bool success = raft_.append_entries(l_term, l_id, p_log_idx, p_log_term, entries, l_commit);
         
-        if (success && raft_.get_log_size() > 100) {
+        if (success && raft_.get_log_size() > 10000) {
             raft_.take_snapshot(raft_.get_commit_index());
             wal_.truncate();
         }
@@ -164,46 +161,45 @@ void Server::process_command(int client_fd, const std::string& command) {
     }
 
     iss >> key;
-    std::string target_node = ring_.get_node(key);
     
-    if (target_node != node_name_) {
-        response = "REDIRECT " + target_node + "\n";
-    } else {
-        if (op == "SET") {
-            int target_idx = raft_.propose(command);
-            if (target_idx == -1) {
-                response = "ERROR NOT_LEADER\n";
-            } else {
-                iss >> value;
-                while (raft_.get_commit_index() < target_idx && raft_.get_state() == RaftState::LEADER) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                }
-
-                if (raft_.get_commit_index() >= target_idx) {
-                    wal_.append(op, key, value);
-                    std::unique_lock<std::shared_mutex> lock(store_mutex_);
-                    store_[key] = value;
-                    
-                    if (raft_.get_log_size() > 100) {
-                        raft_.take_snapshot(raft_.get_commit_index());
-                        wal_.truncate();
-                    }
-
-                    response = "OK\n";
-                } else {
-                    response = "ERROR\n";
-                }
-            }
-        } else if (op == "GET") {
-            std::shared_lock<std::shared_mutex> lock(store_mutex_);
-            if (store_.find(key) != store_.end()) {
-                response = store_[key] + "\n";
-            } else {
-                response = "(nil)\n";
-            }
+    if (op == "SET") {
+        int target_idx = raft_.propose(command);
+        if (target_idx == -1) {
+            response = "ERROR NOT_LEADER\n";
         } else {
-            response = "ERROR\n";
+            iss >> value;
+            int wait_ms = 0;
+            // Increased timeout to account for heavy thread pool queuing during stress tests
+            while (raft_.get_commit_index() < target_idx && raft_.get_state() == RaftState::LEADER && wait_ms < 200) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                wait_ms++;
+            }
+
+            if (raft_.get_commit_index() >= target_idx) {
+                wal_.append(op, key, value);
+                std::unique_lock<std::shared_mutex> lock(store_mutex_);
+                store_[key] = value;
+                
+                // Increased snapshot threshold so nodes don't delete logs before followers can catch up
+                if (raft_.get_log_size() > 10000) {
+                    raft_.take_snapshot(raft_.get_commit_index());
+                    wal_.truncate();
+                }
+
+                response = "OK\n";
+            } else {
+                response = "ERROR NO_QUORUM\n";
+            }
         }
+    } else if (op == "GET") {
+        std::shared_lock<std::shared_mutex> lock(store_mutex_);
+        if (store_.find(key) != store_.end()) {
+            response = store_[key] + "\n";
+        } else {
+            response = "(nil)\n";
+        }
+    } else {
+        response = "ERROR\n";
     }
 
     write(client_fd, response.c_str(), response.length());

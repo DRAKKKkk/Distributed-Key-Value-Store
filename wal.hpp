@@ -10,6 +10,7 @@ public:
     ~WAL();
     void append(const std::string& op, const std::string& key, const std::string& value);
     void recover(std::unordered_map<std::string, std::string>& store);
+    void truncate();
 
 private:
     std::string filename_;

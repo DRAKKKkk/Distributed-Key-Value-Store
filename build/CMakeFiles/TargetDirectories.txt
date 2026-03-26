@@ -1,0 +1,3 @@
+/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/kvstore.dir
+/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/edit_cache.dir
+/mnt/d/Tejas/projects/Distributed Key-Value Store/build/CMakeFiles/rebuild_cache.dir

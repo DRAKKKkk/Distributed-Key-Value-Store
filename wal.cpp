@@ -1,9 +1,8 @@
 #include "wal.hpp"
-#include <iostream>
 #include <sstream>
 
 WAL::WAL(const std::string& filename) : filename_(filename) {
-    file_.open(filename_, std::ios::app | std::ios::out);
+    file_.open(filename_, std::ios::app);
 }
 
 WAL::~WAL() {
@@ -21,17 +20,25 @@ void WAL::append(const std::string& op, const std::string& key, const std::strin
 }
 
 void WAL::recover(std::unordered_map<std::string, std::string>& store) {
+    std::lock_guard<std::mutex> lock(mutex_);
     std::ifstream infile(filename_);
-    if (!infile.is_open()) return;
+    std::string line, op, key, value;
 
-    std::string line;
     while (std::getline(infile, line)) {
         std::istringstream iss(line);
-        std::string op, key, value;
-        iss >> op >> key;
-        if (op == "SET") {
-            iss >> value;
-            store[key] = value;
+        if (iss >> op >> key) {
+            if (op == "SET") {
+                iss >> value;
+                store[key] = value;
+            }
         }
     }
+}
+
+void WAL::truncate() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    file_.close();
+    file_.open(filename_, std::ios::trunc | std::ios::out);
+    file_.close();
+    file_.open(filename_, std::ios::app);
 }

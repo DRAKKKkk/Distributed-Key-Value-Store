@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/kvstore.dir/main.cpp.o CMakeFiles/kvstore.dir/server.cpp.o CMakeFiles/kvstore.dir/thread_pool.cpp.o CMakeFiles/kvstore.dir/wal.cpp.o CMakeFiles/kvstore.dir/raft.cpp.o CMakeFiles/kvstore.dir/consistent_hash.cpp.o -o kvstore 

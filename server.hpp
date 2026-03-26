@@ -9,13 +9,15 @@
 
 class Server {
 public:
-    Server(int port, size_t num_threads, const std::string& wal_file, int node_id);
+    Server(int port, size_t num_threads, const std::string& wal_file, int node_id, const std::string& node_name);
     ~Server();
     void run();
     void add_cluster_node(const std::string& node_name);
+    Raft& get_raft();
 
 private:
     int port_;
+    std::string node_name_;
     int server_fd_;
     int epoll_fd_;
     std::unordered_map<std::string, std::string> store_;

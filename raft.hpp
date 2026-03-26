@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <map>
 
 enum class RaftState { FOLLOWER, CANDIDATE, LEADER };
 
@@ -19,9 +20,11 @@ public:
     ~Raft();
 
     void add_peer(const std::string& peer_address);
-
     bool request_vote(int candidate_term, int candidate_id, int last_log_index, int last_log_term);
     bool append_entries(int leader_term, int leader_id, int prev_log_index, int prev_log_term, const std::vector<LogEntry>& entries, int leader_commit);
+    
+    // New: Propose a command to the cluster
+    void propose(const std::string& command);
 
     RaftState get_state() const;
     int get_term() const;
@@ -35,6 +38,8 @@ private:
     int last_applied_;
 
     std::vector<std::string> peers_;
+    std::map<std::string, int> next_index_;
+    std::map<std::string, int> match_index_;
     int votes_received_;
 
     std::atomic<RaftState> state_;

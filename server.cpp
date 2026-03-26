@@ -170,27 +170,29 @@ void Server::process_command(int client_fd, const std::string& command) {
         response = "REDIRECT " + target_node + "\n";
     } else {
         if (op == "SET") {
-            if (raft_.get_state() != RaftState::LEADER) {
+            int target_idx = raft_.propose(command);
+            if (target_idx == -1) {
                 response = "ERROR NOT_LEADER\n";
             } else {
                 iss >> value;
-                int target_idx = raft_.get_log_size();
-                raft_.propose(command);
-
-                while (raft_.get_commit_index() < target_idx) {
+                while (raft_.get_commit_index() < target_idx && raft_.get_state() == RaftState::LEADER) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 }
 
-                wal_.append(op, key, value);
-                std::unique_lock<std::shared_mutex> lock(store_mutex_);
-                store_[key] = value;
-                
-                if (raft_.get_log_size() > 100) {
-                    raft_.take_snapshot(raft_.get_commit_index());
-                    wal_.truncate();
-                }
+                if (raft_.get_commit_index() >= target_idx) {
+                    wal_.append(op, key, value);
+                    std::unique_lock<std::shared_mutex> lock(store_mutex_);
+                    store_[key] = value;
+                    
+                    if (raft_.get_log_size() > 100) {
+                        raft_.take_snapshot(raft_.get_commit_index());
+                        wal_.truncate();
+                    }
 
-                response = "OK\n";
+                    response = "OK\n";
+                } else {
+                    response = "ERROR\n";
+                }
             }
         } else if (op == "GET") {
             std::shared_lock<std::shared_mutex> lock(store_mutex_);

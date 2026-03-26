@@ -39,7 +39,7 @@ int Raft::get_actual_index(int log_index) const {
 int Raft::get_log_term(int index) const {
     if (index == last_included_index_) return last_included_term_;
     int actual_idx = get_actual_index(index);
-    if (actual_idx >= 0 && actual_idx < log_.size()) return log_[actual_idx].term;
+    if (actual_idx >= 0 && actual_idx < (int)log_.size()) return log_[actual_idx].term;
     return 0;
 }
 
@@ -79,7 +79,7 @@ void Raft::start_election() {
         return;
     }
 
-    int last_log_idx = last_included_index_ + log_.size();
+    int last_log_idx = last_included_index_ + (int)log_.size();
     int last_log_term = get_log_term(last_log_idx);
 
     std::string message = "RAFT_VOTE " + std::to_string(current_term_) + " " + 
@@ -91,10 +91,11 @@ void Raft::start_election() {
     }
 }
 
-void Raft::propose(const std::string& command) {
+int Raft::propose(const std::string& command) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (state_ != RaftState::LEADER) return;
+    if (state_ != RaftState::LEADER) return -1;
     log_.push_back({current_term_, command});
+    return last_included_index_ + (int)log_.size();
 }
 
 void Raft::take_snapshot(int snapshot_index) {
@@ -102,7 +103,7 @@ void Raft::take_snapshot(int snapshot_index) {
     if (snapshot_index <= last_included_index_) return;
 
     int actual_idx = get_actual_index(snapshot_index);
-    if (actual_idx >= 0 && actual_idx < log_.size()) {
+    if (actual_idx >= 0 && actual_idx < (int)log_.size()) {
         last_included_term_ = log_[actual_idx].term;
         log_.erase(log_.begin(), log_.begin() + actual_idx + 1);
     }
@@ -121,7 +122,7 @@ void Raft::send_heartbeats() {
         int p_term = get_log_term(p_idx);
         std::string entries_str = "";
         
-        for (int i = std::max(p_idx + 1, last_included_index_ + 1); i <= last_included_index_ + log_.size(); ++i) {
+        for (int i = std::max(p_idx + 1, last_included_index_ + 1); i <= last_included_index_ + (int)log_.size(); ++i) {
             entries_str += "|" + log_[get_actual_index(i)].command;
         }
 
@@ -182,10 +183,10 @@ void Raft::send_rpc_async(const std::string& peer, const std::string& message, b
                         state_ = RaftState::FOLLOWER;
                         voted_for_ = -1;
                     } else if (success) {
-                        match_index_[peer] = last_included_index_ + log_.size(); 
+                        match_index_[peer] = last_included_index_ + (int)log_.size(); 
                         next_index_[peer] = match_index_[peer] + 1;
 
-                        for (int N = last_included_index_ + log_.size(); N > commit_index_; --N) {
+                        for (int N = last_included_index_ + (int)log_.size(); N > commit_index_; --N) {
                             int count = 1;
                             for (const auto& p : peers_) {
                                 if (match_index_[p] >= N) count++;
@@ -216,7 +217,7 @@ bool Raft::request_vote(int candidate_term, int candidate_id, int last_log_index
         voted_for_ = -1;
     }
 
-    int my_last_idx = last_included_index_ + log_.size();
+    int my_last_idx = last_included_index_ + (int)log_.size();
     int my_last_term = get_log_term(my_last_idx);
 
     bool log_ok = (candidate_term > my_last_term) || 
@@ -240,7 +241,7 @@ bool Raft::append_entries(int leader_term, int leader_id, int prev_log_index, in
 
     if (prev_log_index < last_included_index_) return false;
     
-    if (prev_log_index > last_included_index_ + log_.size()) return false;
+    if (prev_log_index > last_included_index_ + (int)log_.size()) return false;
     if (prev_log_index > last_included_index_ && get_log_term(prev_log_index) != prev_log_term) return false;
 
     int actual_prev = get_actual_index(prev_log_index);
@@ -262,4 +263,4 @@ bool Raft::append_entries(int leader_term, int leader_id, int prev_log_index, in
 RaftState Raft::get_state() const { std::lock_guard<std::mutex> lock(mutex_); return state_; }
 int Raft::get_term() const { std::lock_guard<std::mutex> lock(mutex_); return current_term_; }
 int Raft::get_commit_index() const { std::lock_guard<std::mutex> lock(mutex_); return commit_index_; }
-int Raft::get_log_size() const { std::lock_guard<std::mutex> lock(mutex_); return last_included_index_ + log_.size() + 1; }
+int Raft::get_log_size() const { std::lock_guard<std::mutex> lock(mutex_); return last_included_index_ + (int)log_.size() + 1; }

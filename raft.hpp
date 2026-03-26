@@ -23,7 +23,7 @@ public:
     bool request_vote(int candidate_term, int candidate_id, int last_log_index, int last_log_term);
     bool append_entries(int leader_term, int leader_id, int prev_log_index, int prev_log_term, const std::vector<LogEntry>& entries, int leader_commit);
     
-    void propose(const std::string& command);
+    int propose(const std::string& command);
     void take_snapshot(int snapshot_index);
 
     RaftState get_state() const;

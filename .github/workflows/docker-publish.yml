@@ -1,6 +1,5 @@
 name: Build and Push Docker Image
 
-# This triggers the automation every time you push to the 'main' branch
 on:
   push:
     branches: [ "main" ]
@@ -9,16 +8,10 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      # 1. Gets your code onto the cloud server
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2. Logs into GHCR using a GitHub Secret (Do not hardcode your token here!)
-      - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # 3. Builds and pushes the image
-      - name: Build and Push
-        run: |
-          docker-compose build
-          docker push ghcr.io/<YOUR_GITHUB_USERNAME>/kvstore:latest
+      - run: |
+          docker compose build
+          docker push ghcr.io/drakkkkk/kvstore:latest

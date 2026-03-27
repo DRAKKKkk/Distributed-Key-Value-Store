@@ -24,11 +24,26 @@ A high-performance, fault-tolerant Distributed Key-Value Store built from scratc
 * **Networking:** TCP/IP Sockets, `epoll` (Linux)
 * **Build System:** CMake / Make
 * **Concurrency:** `std::thread`, `std::mutex`, `std::shared_mutex`, `std::condition_variable`
+* **Containerization:** Docker, GitHub Container Registry (GHCR)
 
 ## 🏃‍♂️ How to Run
 
-### 1. Build the Project
+### Option 1: Quick Start with Docker (Recommended)
+You can easily run the pre-built cluster using Docker without needing to compile the C++ code manually.
+
+1. **Pull the image:**
 ```bash
+docker pull ghcr.io/drakkkkk/kvstore:latest
+
+docker run -d --network="host" ghcr.io/drakkkkk/kvstore:latest 8080 1
+docker run -d --network="host" ghcr.io/drakkkkk/kvstore:latest 8081 2
+docker run -d --network="host" ghcr.io/drakkkkk/kvstore:latest 8082 3
+
+docker run -it --network="host" --entrypoint ./build/client ghcr.io/drakkkkk/kvstore:latest 8080 10 50
+
+### Option 2: Build from Source
+If you want to compile and run the project locally from the source code:
+
 mkdir build && cd build
 cmake ..
 make

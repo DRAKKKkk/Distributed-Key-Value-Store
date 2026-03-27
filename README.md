@@ -31,7 +31,7 @@ A high-performance, fault-tolerant Distributed Key-Value Store built from scratc
 ### Option 1: Quick Start with Docker (Recommended)
 You can easily run the pre-built cluster using Docker without needing to compile the C++ code manually.
 
-1. **Pull the image:**
+**Pull the image:**
 ```bash
 docker pull ghcr.io/drakkkkk/kvstore:latest
 
@@ -41,9 +41,19 @@ docker run -d --network="host" ghcr.io/drakkkkk/kvstore:latest 8082 3
 
 docker run -it --network="host" --entrypoint ./build/client ghcr.io/drakkkkk/kvstore:latest 8080 10 50
 
+```
 ### Option 2: Build from Source
+
+```bash
 If you want to compile and run the project locally from the source code:
 
 mkdir build && cd build
 cmake ..
 make
+
+./build/kvstore 8080 1 &
+./build/kvstore 8081 2 &
+./build/kvstore 8082 3 &
+
+./build/client 8080 10 50
+```

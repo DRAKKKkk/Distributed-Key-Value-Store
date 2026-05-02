@@ -140,7 +140,7 @@ void Raft::send_rpc_async(const std::string& peer, const std::string& message, b
         size_t colon = peer.find(':');
         if (colon == std::string::npos) return;
         
-        std::string ip = "127.0.0.1";
+        std::string ip = "0.0.0.0";
         int port = std::stoi(peer.substr(colon + 1));
         int sock = socket(AF_INET, SOCK_STREAM, 0);
         if (sock < 0) return;

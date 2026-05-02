@@ -41,7 +41,7 @@ void send_requests(int start_port, int thread_id, int num_requests, std::vector<
             sockaddr_in serv_addr{};
             serv_addr.sin_family = AF_INET;
             serv_addr.sin_port = htons(cluster_ports[current_port_idx]);
-            inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+            inet_pton(AF_INET, "0.0.0.0", &serv_addr.sin_addr);
 
             if (connect(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
                 close(sock);

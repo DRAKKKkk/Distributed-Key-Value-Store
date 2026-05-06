@@ -23,17 +23,20 @@ function App() {
     addLog(`> ${action} ${key} ${value}`);
     
     try {
-      // Build the URL based on the command type matching your C++ HTTP Interceptor
       const targetUrl = action === "SET" 
         ? `${API_BASE_URL}/SET/${key}/${value}`
         : `${API_BASE_URL}/GET/${key}`;
 
-      const response = await fetch(targetUrl);
+      // THE FIX IS HERE: We added the headers object to the fetch call
+      const response = await fetch(targetUrl, {
+        headers: {
+          "ngrok-skip-browser-warning": "69420"
+        }
+      });
+      
       const data = await response.json();
       
-      // Handle the C++ JSON format {"status": "success", "value": "..."}
       if (data.status === "success") {
-        // The Cloudflare tunnel is wired directly to Node 1 (8080)
         setLeaderPort(8080); 
         const replyMessage = action === "GET" ? data.value : data.message;
         addLog(`✅ Cluster replied: ${replyMessage}`);
@@ -41,7 +44,8 @@ function App() {
         addLog(`❌ Error: ${data.message}`);
       }
     } catch (error) {
-      addLog(`🚨 Network Error: Is the Cloudflare tunnel running and VITE_API_URL set?`);
+      addLog(`🚨 Network Error: Is the Ngrok tunnel running?`);
+      console.error(error); // Helpful for debugging!
     }
   };
 

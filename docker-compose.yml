@@ -7,17 +7,26 @@ services:
       - "8081:8081"
       - "8082:8082"
     command: ["8080", "1"]
+    restart: unless-stopped
+    volumes:
+      - ./data1:/app/data # Assuming your logs/wal are stored in /app/data
 
   node2:
     image: ghcr.io/drakkkkk/kvstore:latest
-    network_mode: "service:node1" # This forces node2 to share node1's localhost
+    network_mode: "service:node1"
     command: ["8081", "2"]
     depends_on:
       - node1
+    restart: unless-stopped
+    volumes:
+      - ./data2:/app/data
 
   node3:
     image: ghcr.io/drakkkkk/kvstore:latest
-    network_mode: "service:node1" # This forces node3 to share node1's localhost
+    network_mode: "service:node1"
     command: ["8082", "3"]
     depends_on:
       - node1
+    restart: unless-stopped
+    volumes:
+      - ./data3:/app/data

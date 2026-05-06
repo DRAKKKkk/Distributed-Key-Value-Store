@@ -141,7 +141,8 @@ void Server::process_command(int client_fd, const std::string& raw_command) {
                 "HTTP/1.1 200 OK\r\n"
                 "Access-Control-Allow-Origin: *\r\n"
                 "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-                "Access-Control-Allow-Headers: Content-Type\r\n"
+                // THE FIX IS ON THIS LINE BELOW:
+                "Access-Control-Allow-Headers: Content-Type, ngrok-skip-browser-warning\r\n"
                 "Connection: close\r\n"
                 "Content-Length: 0\r\n\r\n";
             write(client_fd, cors_response.c_str(), cors_response.length());

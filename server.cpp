@@ -137,17 +137,17 @@ void Server::process_command(int client_fd, const std::string& raw_command) {
 
         // 1. Handle CORS Preflight from React
         if (method == "OPTIONS") {
-            std::string cors_response = 
-                "HTTP/1.1 200 OK\r\n"
-                "Access-Control-Allow-Origin: *\r\n"
-                "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
-                // THE FIX IS ON THIS LINE BELOW:
-                "Access-Control-Allow-Headers: Content-Type, ngrok-skip-browser-warning\r\n"
-                "Connection: close\r\n"
-                "Content-Length: 0\r\n\r\n";
-            write(client_fd, cors_response.c_str(), cors_response.length());
-            return;
-        }
+    std::string cors_response = 
+        "HTTP/1.1 200 OK\r\n"
+        "Access-Control-Allow-Origin: *\r\n"
+        "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+        "Access-Control-Allow-Headers: Content-Type, ngrok-skip-browser-warning\r\n"
+        "Access-Control-Max-Age: 86400\r\n" // Cache preflight for 24 hours
+        "Connection: close\r\n"
+        "Content-Length: 0\r\n\r\n";
+    write(client_fd, cors_response.c_str(), cors_response.length());
+    return;
+}
         
         // 2. Translate URL paths to database commands (e.g., "/SET/mykey/myvalue" -> "SET mykey myvalue")
         if (path.length() > 1 && path != "/favicon.ico") {

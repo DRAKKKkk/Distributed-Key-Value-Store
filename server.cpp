@@ -6,6 +6,7 @@
 #include <sys/epoll.h>
 #include <cstring>
 #include <sstream>
+#include <iostream>
 
 #define MAX_EVENTS 10
 #define BUFFER_SIZE 1024
@@ -123,16 +124,55 @@ void Server::handle_client_data(int client_fd) {
     epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, client_fd, &event);
 }
 
-void Server::process_command(int client_fd, const std::string& command) {
+void Server::process_command(int client_fd, const std::string& raw_command) {
+    std::string command = raw_command;
+    bool is_http = false;
+
+    // --- HTTP INTERCEPTOR & CORS HANDLER ---
+    if (command.find("HTTP/") != std::string::npos) {
+        is_http = true;
+        std::istringstream stream(command);
+        std::string method, path;
+        stream >> method >> path;
+
+        // 1. Handle CORS Preflight from React
+        if (method == "OPTIONS") {
+            std::string cors_response = 
+                "HTTP/1.1 200 OK\r\n"
+                "Access-Control-Allow-Origin: *\r\n"
+                "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+                "Access-Control-Allow-Headers: Content-Type\r\n"
+                "Connection: close\r\n"
+                "Content-Length: 0\r\n\r\n";
+            write(client_fd, cors_response.c_str(), cors_response.length());
+            return;
+        }
+        
+        // 2. Translate URL paths to database commands (e.g., "/SET/mykey/myvalue" -> "SET mykey myvalue")
+        if (path.length() > 1 && path != "/favicon.ico") {
+            command = path.substr(1); 
+            for (char& c : command) {
+                if (c == '/') c = ' ';
+            }
+        } else {
+            // Read from body if path is just "/"
+            size_t body_pos = raw_command.find("\r\n\r\n");
+            if (body_pos != std::string::npos) {
+                command = raw_command.substr(body_pos + 4);
+            }
+        }
+    }
+
     std::istringstream iss(command);
-    std::string op, key, value, response;
+    std::string op, key, value, json_response, raw_response;
     iss >> op;
 
+    // --- RAFT CLUSTER TRAFFIC (Ignored by HTTP) ---
     if (op == "RAFT_VOTE") {
         int c_term, c_id, c_log_idx, c_log_term;
         iss >> c_term >> c_id >> c_log_idx >> c_log_term;
         bool granted = raft_.request_vote(c_term, c_id, c_log_idx, c_log_term);
-        response = "VOTE_ACK " + std::to_string(raft_.get_term()) + " " + (granted ? "1\n" : "0\n");
+        std::string response = "VOTE_ACK " + std::to_string(raft_.get_term()) + " " + (granted ? "1\n" : "0\n");
         write(client_fd, response.c_str(), response.length());
         return;
     } 
@@ -155,21 +195,23 @@ void Server::process_command(int client_fd, const std::string& command) {
             wal_.truncate();
         }
 
-        response = "APPEND_ACK " + std::to_string(raft_.get_term()) + " " + (success ? "1\n" : "0\n");
+        std::string response = "APPEND_ACK " + std::to_string(raft_.get_term()) + " " + (success ? "1\n" : "0\n");
         write(client_fd, response.c_str(), response.length());
         return;
     }
 
+    // --- CLIENT DATABASE TRAFFIC ---
     iss >> key;
     
     if (op == "SET") {
         int target_idx = raft_.propose(command);
         if (target_idx == -1) {
-            response = "ERROR NOT_LEADER\n";
+            json_response = "{\"status\": \"error\", \"message\": \"NOT_LEADER\"}";
+            raw_response = "ERROR NOT_LEADER";
         } else {
             iss >> value;
             int wait_ms = 0;
-            // Increased timeout to account for heavy thread pool queuing during stress tests
+            // Increased timeout to account for heavy thread pool queuing
             while (raft_.get_commit_index() < target_idx && raft_.get_state() == RaftState::LEADER && wait_ms < 200) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 wait_ms++;
@@ -180,27 +222,47 @@ void Server::process_command(int client_fd, const std::string& command) {
                 std::unique_lock<std::shared_mutex> lock(store_mutex_);
                 store_[key] = value;
                 
-                // Increased snapshot threshold so nodes don't delete logs before followers can catch up
                 if (raft_.get_log_size() > 10000) {
                     raft_.take_snapshot(raft_.get_commit_index());
                     wal_.truncate();
                 }
 
-                response = "OK\n";
+                json_response = "{\"status\": \"success\", \"message\": \"OK\"}";
+                raw_response = "OK";
             } else {
-                response = "ERROR NO_QUORUM\n";
+                json_response = "{\"status\": \"error\", \"message\": \"NO_QUORUM\"}";
+                raw_response = "ERROR NO_QUORUM";
             }
         }
     } else if (op == "GET") {
         std::shared_lock<std::shared_mutex> lock(store_mutex_);
         if (store_.find(key) != store_.end()) {
-            response = store_[key] + "\n";
+            json_response = "{\"status\": \"success\", \"value\": \"" + store_[key] + "\"}";
+            raw_response = store_[key];
         } else {
-            response = "(nil)\n";
+            json_response = "{\"status\": \"error\", \"message\": \"(nil)\"}";
+            raw_response = "(nil)";
         }
     } else {
-        response = "ERROR\n";
+        json_response = "{\"status\": \"error\", \"message\": \"INVALID_COMMAND\"}";
+        raw_response = "ERROR";
     }
 
-    write(client_fd, response.c_str(), response.length());
+    // --- RESPONSE ROUTER ---
+    if (is_http) {
+        // Send a beautifully formatted Web JSON response
+        std::string http_response = 
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: application/json\r\n"
+            "Access-Control-Allow-Origin: *\r\n"
+            "Connection: close\r\n"
+            "Content-Length: " + std::to_string(json_response.length()) + "\r\n"
+            "\r\n" + 
+            json_response;
+        write(client_fd, http_response.c_str(), http_response.length());
+    } else {
+        // Fallback for internal C++ tools testing via raw TCP
+        raw_response += "\n";
+        write(client_fd, raw_response.c_str(), raw_response.length());
+    }
 }

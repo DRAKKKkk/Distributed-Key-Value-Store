@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+// Pull the Cloudflare URL from Vercel (or default to localhost if testing locally)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
+
 function App() {
   const [logs, setLogs] = useState(["System Initialized. Ready for commands."]);
   const [leaderPort, setLeaderPort] = useState(null);
@@ -20,22 +23,25 @@ function App() {
     addLog(`> ${action} ${key} ${value}`);
     
     try {
-      const response = await fetch("http://localhost:5000/api/command", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, key, value })
-      });
-      
+      // Build the URL based on the command type matching your C++ HTTP Interceptor
+      const targetUrl = action === "SET" 
+        ? `${API_BASE_URL}/SET/${key}/${value}`
+        : `${API_BASE_URL}/GET/${key}`;
+
+      const response = await fetch(targetUrl);
       const data = await response.json();
       
-      if (data.success) {
-        setLeaderPort(data.processedBy);
-        addLog(`✅ Node ${data.processedBy} replied: ${data.response}`);
+      // Handle the C++ JSON format {"status": "success", "value": "..."}
+      if (data.status === "success") {
+        // The Cloudflare tunnel is wired directly to Node 1 (8080)
+        setLeaderPort(8080); 
+        const replyMessage = action === "GET" ? data.value : data.message;
+        addLog(`✅ Cluster replied: ${replyMessage}`);
       } else {
-        addLog(`❌ Error: ${data.error}`);
+        addLog(`❌ Error: ${data.message}`);
       }
     } catch (error) {
-      addLog(`🚨 Network Error: Is the Node.js Gateway running?`);
+      addLog(`🚨 Network Error: Is the Cloudflare tunnel running and VITE_API_URL set?`);
     }
   };
 
@@ -69,7 +75,7 @@ function App() {
         <h3 style={{ margin: 0 }}>Node {port - 8079}</h3>
         <p style={{ margin: '5px 0 0 0', fontSize: '12px', opacity: 0.8 }}>Port {port}</p>
         <div style={{ marginTop: '10px', fontSize: '12px', fontWeight: 'bold' }}>
-          {isLeader ? '👑 LEADER' : 'FOLLOWER'}
+          {isLeader ? '👑 ACTIVE' : 'FOLLOWER'}
         </div>
       </div>
     );
